@@ -291,7 +291,7 @@ int main(int argc, char *argv[])
     int max_cost = stoi(argv[4]);
     int s = stoi(argv[5]);
     string outfile = argv[6];
-    int delta = 2;
+    int delta = 75;
     DEBUGOUT("v_num " << v_num << " e_num " << e_num << " max cost " << max_cost << " source v " << s << " output " << outfile)
     tent = vector<int>(v_num, 0);
 
@@ -301,14 +301,13 @@ int main(int argc, char *argv[])
         edges[v].push_back({w, cost});
     }
     fin.close();
-    timeval start, end;
-    gettimeofday(&start, nullptr);
     dijkstra(s, v_num, e_num);
     output(outfile+".ans", s);
-    gettimeofday(&end, nullptr);
-    cout << "dijkstra\t" << time_use(start, end) << " us" << endl;
     statistic_delta_stepping(s, delta, v_num, e_num, outfile, 1);
     statistic_delta_stepping(s, delta, v_num, e_num, outfile, 2);
+    statistic_delta_stepping(s, delta, v_num, e_num, outfile, 3);
     statistic_delta_stepping(s, delta, v_num, e_num, outfile, 4);
+    statistic_delta_stepping(s, delta, v_num, e_num, outfile, 5);
+    statistic_delta_stepping(s, delta, v_num, e_num, outfile, 6);
     return 0;
 }
