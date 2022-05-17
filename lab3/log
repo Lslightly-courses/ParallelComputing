@@ -1,0 +1,5 @@
+rank:1
+send complete
+[mpiexec@lqw-ubuntu] Sending Ctrl-C to processes as requested
+[mpiexec@lqw-ubuntu] Press Ctrl-C again to force abort
+Ctrl-C caught... cleaning up processes
