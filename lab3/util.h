@@ -29,7 +29,7 @@ typedef struct {
 void mallocAll(CSR &s);
 void freeAll(CSR &s);
 CSR input();
-void printResult(CSR &s);
+void printResult(double *result, int row_num);
 void initVec(CSR &s);
 
 #endif

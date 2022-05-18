@@ -8,7 +8,6 @@ void mallocAll(CSR &s) {
     s.idx = (int *)malloc(sizeof(int)*s.nnz);
     s.val = (double *)malloc(sizeof(double)*s.nnz);
     s.vec = (double *)malloc(sizeof(double)*s.col_num);
-    s.result = (double *)malloc(sizeof(double)*s.row_num);
 }
 
 CSR input() {
@@ -70,12 +69,11 @@ void freeAll(CSR &s) {
     free(s.idx);
     free(s.val);
     free(s.vec);
-    free(s.result);
 }
 
-void printResult(CSR &s) {
-    for (int i = 0; i < s.row_num; i++) {
-        cout << s.result[i] << endl;
+void printResult(double *result, int row_num) {
+    for (int i = 0; i < row_num; i++) {
+        cout << result[i] << endl;
     }
 }
 
