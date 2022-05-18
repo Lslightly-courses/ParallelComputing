@@ -143,7 +143,8 @@ int main(int argc, char **argv)
     }
     #ifndef SERIAL
         if (myrank == nprocs-1)
-            fprintf(stderr, "%f %f%% %f%%\n", duration/LOOPS, cal_per/LOOPS*100, collect_per/LOOPS*100);
+            //  这里进行取平均
+            fprintf(stderr, "%f %f%% %f%%\n", duration/LOOPS*1000, cal_per/LOOPS*100, collect_per/LOOPS*100);
         MPI_Finalize();
     #endif
     return 0;
