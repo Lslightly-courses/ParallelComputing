@@ -44,42 +44,57 @@ typedef struct Statistic {
     double cal_per;
 }Statistic;
 
+void cutRows(int cut[], int nprocs, int r_procs, CSR &s) {
+    int row_num = s.row_num;
+    cut[0] = 0;
+    int row = 0;
+    for (int i = 1; i <= nprocs; i++) {
+        while (i*r_procs > s.ptr[row]) {
+            row++;
+        }
+        cut[i] = row;
+    }
+    cut[nprocs] = s.row_num;
+}
+
 #ifndef SERIAL
 Statistic MPICSRSpMV(int argc, char **argv, int nprocs, int myrank) {
     MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
     double start, end, duration, total_start, total_end;
-    double t_cal, t_collect;
+    double t_cal, t_collect, total_duration = 1;
     double tag_res = 1;
     CSR s = input();
     initVec(s);
     int col_num = s.col_num;
     int row_num = s.row_num;
-    int r_procs = s.row_num/nprocs;
+    int r_procs = s.nnz/nprocs;
     double *local_res;
     double *res;
-    int *idx = s.idx+s.ptr[myrank*r_procs];
-    double *val = s.val+s.ptr[myrank*r_procs];
-    int *ptr = s.ptr+myrank*r_procs;
-    int left = row_num - myrank*r_procs;
+    int *cut = (int *)malloc(sizeof(int)*(nprocs+1));
+    cutRows(cut, nprocs, r_procs, s);
+    int *ptr = s.ptr+cut[myrank];
+    int *idx = s.idx+*ptr;
+    double *val = s.val+*ptr;
+    int left = cut[nprocs] - cut[nprocs-1];
     MPI_Barrier(MPI_COMM_WORLD);
     total_start = MPI_Wtime();
     START_TIMING
     if (myrank == nprocs-1) {  //  master
         res = (double*)malloc(sizeof(double)*(s.row_num));
-        int nnz = countNNZ(s, myrank*r_procs, row_num);
+        int nnz = countNNZ(s, cut[myrank], cut[myrank+1]);
         local_res = (double *)malloc(sizeof(double)*left);
         CSR local_s = {left, col_num, nnz, ptr, idx, val, s.vec, local_res};
         CSRSpMV(local_s, ptr[0]);
-        for (int i = (nprocs-1)*r_procs; i < row_num; i++) {
-            res[i] = local_res[i-(nprocs-1)*r_procs];
+        for (int i = cut[myrank]; i < cut[myrank+1]; i++) {
+            res[i] = local_res[i-cut[myrank]];
         }
     } else {
-        int nnz = countNNZ(s, myrank*r_procs, (myrank+1)*r_procs);
-        local_res = (double *)malloc(sizeof(double)*r_procs);
-        CSR local_s = {r_procs, col_num, nnz, ptr, idx, val, s.vec, local_res};
+        int nnz = countNNZ(s, cut[myrank],  cut[myrank+1]);
+        int local_row_num = cut[myrank+1]-cut[myrank];
+        local_res = (double *)malloc(sizeof(double)*(local_row_num));
+        CSR local_s = {local_row_num, col_num, nnz, ptr, idx, val, s.vec, local_res};
         CSRSpMV(local_s, ptr[0]);
-        MPI_Send(local_res, r_procs, MPI_DOUBLE, nprocs-1, tag_res, MPI_COMM_WORLD);
-        free(local_res);
+        MPI_Send(local_res, local_row_num, MPI_DOUBLE, nprocs-1, tag_res, MPI_COMM_WORLD);
     }
     freeAll(s);
     GET_TIME
@@ -88,18 +103,18 @@ Statistic MPICSRSpMV(int argc, char **argv, int nprocs, int myrank) {
     if (myrank == nprocs-1) {
         MPI_Status status;
         for (int i = 0; i < nprocs-1; i++) {
-            MPI_Recv(res+i*r_procs, r_procs, MPI_DOUBLE, i, tag_res, MPI_COMM_WORLD, &status);
+            MPI_Recv(res+cut[i], cut[i+1]-cut[i], MPI_DOUBLE, i, tag_res, MPI_COMM_WORLD, &status);
         }
         GET_TIME
         t_collect = duration;
         total_end = MPI_Wtime();
-        double total_duration = total_end - total_start;
+        total_duration = total_end - total_start;
         printResult(res, row_num);
         free(res);
-        free(local_res);
-        return {total_duration, t_collect/total_duration, t_cal/total_duration};
     }
-    return {};
+    free(cut);
+    free(local_res);
+    return {total_duration, t_collect/total_duration, t_cal/total_duration};
 }
 #endif
 
@@ -117,9 +132,11 @@ int main(int argc, char **argv)
     for (int i = 0; i < LOOPS; i++) {
         #ifndef SERIAL
             auto tmp_result = MPICSRSpMV(argc, argv, nprocs, myrank);
-            duration += tmp_result.total_time;
-            cal_per += tmp_result.cal_per;
-            collect_per += tmp_result.collect_per;
+            if (myrank == nprocs-1) {
+                duration += tmp_result.total_time;
+                cal_per += tmp_result.cal_per;
+                collect_per += tmp_result.collect_per;
+            }
         #else
             serialSpMV();
         #endif
